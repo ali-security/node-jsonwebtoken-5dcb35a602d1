@@ -31,8 +31,22 @@ module.exports.sign = function(payload, secretOrPrivateKey, options) {
 };
 
 module.exports.verify = function(jwtString, secretOrPublicKey, options, callback) {
-  if ((typeof options === 'function') && !callback) callback = options;
+  if ((typeof options === 'function') && !callback) {
+    callback = options;
+    options = {};
+  }
   if (!options) options = {};
+
+  var algorithms = options.algorithms;
+  if (!algorithms) {
+    var keyString = secretOrPublicKey ? secretOrPublicKey.toString() : '';
+    algorithms = ~keyString.indexOf('BEGIN CERTIFICATE') ||
+                 ~keyString.indexOf('BEGIN PUBLIC KEY') ?
+                  [ 'RS256','RS384','RS512','ES256','ES384','ES512' ] :
+                 ~keyString.indexOf('BEGIN RSA PUBLIC KEY') ?
+                  [ 'RS256','RS384','RS512' ] :
+                  [ 'HS256','HS384','HS512' ];
+  }
 
   var valid;
   try {
@@ -43,6 +57,11 @@ module.exports.verify = function(jwtString, secretOrPublicKey, options, callback
   }
 
   if (!valid)
+    return callback(new Error('invalid signature'));
+
+  var decoded = jws.decode(jwtString);
+  var header = decoded && decoded.header;
+  if (!header || !~algorithms.indexOf(header.alg))
     return callback(new Error('invalid signature'));
 
   var payload = this.decode(jwtString);
