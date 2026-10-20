@@ -1,0 +1,36 @@
+name: seal-build
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # The public tarball was packed with npm 1.4.6 (Node 0.10); npm 1.x ships
+      # .gitignore as .npmignore, which modern npm does not.
+      - name: Install Node 0.10.48
+        run: |
+          curl -fsSL https://nodejs.org/dist/v0.10.48/node-v0.10.48-linux-x64.tar.gz | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/node-v0.10.48-linux-x64/bin" >> "$GITHUB_PATH"
+      - name: Stage package tree
+        run: |
+          mkdir -p "$RUNNER_TEMP/package"
+          tar --exclude=./.git --exclude=./.github -cf - . | tar -xf - -C "$RUNNER_TEMP/package"
+          ls -la "$RUNNER_TEMP/package"
+      - name: npm pack
+        run: |
+          node --version
+          npm --version
+          cd "$RUNNER_TEMP/package"
+          npm pack
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          mv jsonwebtoken-0.4.0.tgz "$GITHUB_WORKSPACE/dist/"
+          tar tzvf "$GITHUB_WORKSPACE/dist/jsonwebtoken-0.4.0.tgz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jsonwebtoken-0.4.0.tgz
+          path: dist/jsonwebtoken-0.4.0.tgz
+          if-no-files-found: error
